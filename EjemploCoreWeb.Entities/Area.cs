@@ -1,10 +1,24 @@
-﻿namespace EjemploCoreWeb.Entities;
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
-public record class Area
+namespace EjemploCoreWeb.Entities;
+
+public class Area
 {
     public int ID_Area { get; set; }
-    public string Nombre_Area { get; set; } = "";
-    public int Jefe_Area { get; set; }
-    public string? Jefe_Nombre { get; set; } 
-}
 
+    [Required, StringLength(40)]
+    [RegularExpression(@"^[A-Za-zÁÉÍÓÚáéíóúñÑ ]+$",
+        ErrorMessage = "El nombre solo puede tener letras y espacios.")]
+    public string Nombre_Area { get; set; } = string.Empty;
+
+    [Required]
+    public int Jefe_Area { get; set; }
+
+    [Required, StringLength(15)]
+    public string Codigo_Area { get; set; } = string.Empty;
+
+    // Solo para listar/mostrar (se llena con un JOIN y alias en el repo)
+    [NotMapped]
+    public string? Jefe_Nombre { get; set; }
+}

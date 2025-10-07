@@ -14,17 +14,16 @@ public class AreaRepository : IAreaRepository
     public async Task<IEnumerable<Area>> ListarAsync(string? filtro)
     {
         using var con = _factory.CreateConnection();
-        const string where = @"(@f IS NULL OR Nombre_Area LIKE CONCAT('%',@f,'%'))";
 
-        var sql = $@"
-SELECT  a.ID_Area,
-        a.Nombre_Area,
-        a.Jefe_Area,
-        u.Nombre    AS Jefe_Nombre
-FROM Areas a
-LEFT JOIN Usuario u ON u.ID_Usuario = a.Jefe_Area
-WHERE {where}
-ORDER BY a.Nombre_Area;";
+        var where = @"(@f IS NULL OR Nombre_Area LIKE CONCAT('%',@f,'%') 
+                                OR Codigo_Area LIKE CONCAT('%',@f,'%'))";
+
+        // <-- No puede ser const si usamos la variable 'where'
+        var sql = @"
+SELECT ID_Area, Nombre_Area, Jefe_Area, Codigo_Area
+FROM Areas
+WHERE " + where + @"
+ORDER BY Nombre_Area;";
 
         return await con.QueryAsync<Area>(sql, new { f = string.IsNullOrWhiteSpace(filtro) ? null : filtro });
     }
@@ -32,22 +31,19 @@ ORDER BY a.Nombre_Area;";
     public async Task<Area?> ObtenerAsync(int id)
     {
         using var con = _factory.CreateConnection();
-        var sql = @"
-SELECT a.ID_Area, a.Nombre_Area, a.Jefe_Area,
-       u.Nombre AS Jefe_Nombre
-FROM Areas a
-LEFT JOIN Usuario u ON u.ID_Usuario = a.Jefe_Area
-WHERE a.ID_Area=@id
-LIMIT 1;";
+        const string sql = @"
+SELECT ID_Area, Nombre_Area, Jefe_Area, Codigo_Area
+FROM Areas
+WHERE ID_Area=@id LIMIT 1;";
         return await con.QueryFirstOrDefaultAsync<Area>(sql, new { id });
     }
 
     public async Task<int> CrearAsync(Area a)
     {
         using var con = _factory.CreateConnection();
-        var sql = @"
-INSERT INTO Areas (Nombre_Area, Jefe_Area)
-VALUES (@Nombre_Area, @Jefe_Area);
+        const string sql = @"
+INSERT INTO Areas (Nombre_Area, Jefe_Area, Codigo_Area)
+VALUES (@Nombre_Area, @Jefe_Area, @Codigo_Area);
 SELECT LAST_INSERT_ID();";
         return await con.ExecuteScalarAsync<int>(sql, a);
     }
@@ -55,12 +51,13 @@ SELECT LAST_INSERT_ID();";
     public async Task<bool> ActualizarAsync(Area a)
     {
         using var con = _factory.CreateConnection();
-        var sql = @"
+        const string sql = @"
 UPDATE Areas
-SET Nombre_Area=@Nombre_Area, Jefe_Area=@Jefe_Area
+SET Nombre_Area=@Nombre_Area,
+    Jefe_Area=@Jefe_Area,
+    Codigo_Area=@Codigo_Area
 WHERE ID_Area=@ID_Area;";
-        var rows = await con.ExecuteAsync(sql, a);
-        return rows == 1;
+        return await con.ExecuteAsync(sql, a) == 1;
     }
 
     public async Task<bool> EliminarAsync(int id)
@@ -71,9 +68,10 @@ WHERE ID_Area=@ID_Area;";
             var rows = await con.ExecuteAsync("DELETE FROM Areas WHERE ID_Area=@id;", new { id });
             return rows == 1;
         }
-        catch (MySqlException ex) when (ex.Number == 1451) // FK constraint
+        catch (MySqlException ex) when (ex.Number == 1451)
         {
             return false;
         }
+
     }
 }
